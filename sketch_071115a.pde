@@ -10,25 +10,28 @@ class NFlock
         public Bird(double[] p, double[] v) { this.p = p; this.v = v; }
     }
     
-    int 
+    public int 
         count = 200,
         dimension = 6,
-        world_width = 1280,
-        world_height = 720,
+        world_width,
+        world_height,
         world_depth = 1280;
 
     double
         phase = 0,
         phaseRate = .002,
-        visibility = .000001,
-        cohesion = .05,
+        visibility = .05,
+        cohesion = .007,
         alignment = .005,
         separation = .001,
         per_bird_separation = .003,
-        attractor_strength = .0003,
+        first_attractor_strength = .00003,
+        attractor_strength = .00001,
         momentum = .002,
         randomness = .001,
         stall = 1;
+
+    public double[][] attractors;
 
     double[] 
         //init_pmax = new double[] { world_width - (world_width * .8), world_height - (world_height * .9), world_depth - (world_depth * .9), 255, 255, 255 },
@@ -40,16 +43,16 @@ class NFlock
         //init_vmin = new double[] { -.8, .4, -2, -.001, -.0090, -.0070 },
         init_vmin = new double[] { -.05, -.05, -.05, -.1, -.1, -.1 },
         //attractor = new double[] { world_width / 2, world_height / 2, world_depth - (world_depth *  .6), 20, 118, 107 },
-        attractor = new double[] { .5, .5, .5, .5, .5, .5 },
-        attractor1 = new double[] { .5, .5, .5, .5, .5, .5 },
         random_min = new double[] { -.02, -.02, -.02, -.01, -.01, -.01},
         random_max = new double[] { .02, .02, .02, .01, .01, .01 };
         
 
     Bird[] birds;
     
-    NFlock initialize()
+    NFlock initialize(int w, int h)
     {
+        world_width = w;
+        world_height = h;
         size(world_width, world_height);
         background(#000000);
         
@@ -85,7 +88,6 @@ class NFlock
     void solve_bird(Bird bird, int index)
     {
         //println("solving");
-        int num_birds_in_sight = 0;
         double[]
             cohesion_point = new double[dimension],
             alignment_vector = new double[dimension],
@@ -98,84 +100,43 @@ class NFlock
         {
             if(i == index)
                 continue;
+                
             if (distance_squared(bird.p, birds[i].p) > visibility)
                 continue;
 
-            num_birds_in_sight++;
-
-            // arithmetic mean
             for (int j = 0; j < dimension; j++)
-                //cohesion_point[j] = (num_birds_in_sight * cohesion_point[j] + birds[i].p[j]) / (num_birds_in_sight + 1);
                 cohesion_point[j] += birds[i].p[j];
             
             // simple sum, normalize later
             for (int j = 0; j < dimension; j++)
                 alignment_vector[j] += birds[i].v[j];
-                
-            //println("alignment");
-            //printArray(alignment_vector);
-
-            // weighted sum (weight proportional to square of proximity)
-            double d2 = distance_squared(bird.p, birds[i].p);
-            //println("distance squared: " + d2);
+            
             for (int j = 0; j < dimension; j++)
-                separation_vector[j] += (per_bird_separation * (bird.p[j] - birds[i].p[j])) / d2;
-                //separation_vector[j] += bird.p[j] - birds[i].p[j];
+                separation_vector[j] += bird.p[j] - birds[i].p[j];
         }
         
-        
-        //attractor[0] = mouseX;
-        //attractor[1] = mouseY;
-        attractor[0] = (double)mouseX / (double)world_width;
-        attractor[1] = (double)mouseY / (double)world_height;
+        attractors[0][0] = (double)mouseX / (double)world_width;
+        attractors[0][1] = (double)mouseY / (double)world_height;
         //attractor[2] = ((double)(mouseX + mouseY) / (world_width + world_height));
-        attractor[3] = .5 * Math.sin(phase) + .5;
-        attractor[4] = .5 * Math.sin(phase * phase * .8 + 1) + .5;
-        attractor[5] = .5 * Math.sin(phase + 2) + .5;
+        attractors[0][2] = .5;
+        attractors[0][3] = .5 * Math.sin(phase * phase) + .5;
+        attractors[0][4] = .5 * Math.sin(phase * phase * .8 + 1) + .5;
+        attractors[0][5] = .5 * Math.sin(phase + 2) + .5;
         
-        attractor1[0] = (double)(world_width - mouseX) / (double)world_width;
-        attractor1[1] = (double)(world_height - mouseY) / (double)world_height;
-        //attractor[2] = ((double)(mouseX + mouseY) / (world_width + world_height));
-        attractor1[3] = .5 * Math.sin(phase * phase * .8) + .5;
-        attractor1[4] = .5 * Math.sin(phase + 1) + .5;
-        attractor1[5] = .5 * Math.sin(phase - 1) + .5;
+        double[][] components = new double[5 + attractors.length][];
         
-        //println("solved with " + num_birds_in_sight + " birds in sight");
-        double[] to_attractor = difference(attractor, bird.p);
-        double[] to_attractor1 = difference(attractor1, bird.p);
-        //double attractor_distance_squared = distance_squared(to_attractor, attractor);
-        //double[] to_cp = difference(cohesion_point, bird.p);
-        //double cp_distance_squared = distance_squared(cohesion_point, to_cp);
+        components[0] = scale(cohesion, normalize(difference(cohesion_point, bird.p)));
+        components[1] = scale(alignment, normalize(alignment_vector));
+        components[2] = scale(separation, normalize(separation_vector));
+        components[3] = scale(momentum, normalize(bird.v));
+        components[4] = scale(randomness, random(random_min, random_max));
         
-        bird.v = sum(new double[][] {
-            scale(cohesion, normalize(difference(cohesion_point, bird.p))),
-            //scale(cohesion * cp_distance_squared, normalize(to_cp)),
-            scale(alignment, normalize(alignment_vector)),
-            scale(separation, normalize(separation_vector)),
-            //scale(1/attractor_strength * Math.sqrt(attractor_distance_squared), normalize(to_attractor)),
-            scale(attractor_strength, normalize(to_attractor)),
-            scale(attractor_strength, normalize(to_attractor1)),
-            scale(momentum, normalize(bird.v)),
-            scale(randomness, random(random_min, random_max))
-        });
-        
-        /*
-        double[] v = new double[] { bird.v[0], bird.v[1] };
-        double m2 = magnitude_squared(v);
-        
-        double r = m2 / stall;
-        if(r < 1)
+        for (int i = 0; i < attractors.length; i++)
         {
-            double[] rv = scale(1 / Math.sqrt(m2), v);
-            bird.v[0] = rv[0];
-            bird.v[1] = rv[1];
-        }*/
+          components[i + 5] = scale(i == 0 ? first_attractor_strength : attractor_strength, normalize(difference(attractors[i], bird.p)));
+        }
         
-        //double m2 = magnitude_squared(bird.v);
-        
-        //double r = m2 / stall;
-        //if(r < 1)
-        //    bird.v = scale(1 / Math.sqrt(m2), bird.v);
+        bird.v = sum(components);
     }
 
     void draw_bird(Bird bird)
@@ -226,7 +187,6 @@ class NFlock
         //println("drawing bird: " + px + " " + py);
         
     }
-
 
     double[] random(double[] upper, double[] lower)
     {
@@ -288,20 +248,72 @@ class NFlock
         if(Math.abs(m) < .0000000000001)
           m = .0000000000001;
         return scale(1 / Math.sqrt(m), a);
-    }
-    
+    }   
 }
 
 NFlock flock;
 FullScreen fs;
-int iterations = 0;
+double mouseAttraction = .0004;
+
+ArrayList<double[]> attractorSetup;
+boolean done;
+
 void setup() { 
-  noCursor();
-  flock = new NFlock().initialize(); 
-  fs = new FullScreen(this);
-  fs.enter();
+  flock = new NFlock().initialize(800,800); 
+  //fs = new FullScreen(this);
+  //fs.enter();
+  attractorSetup = new ArrayList<double[]>();
 }
-void draw() { if(keyPressed || true) for (int i = 0; i < 5; i++) flock.iterate(); }
+
+void mousePressed()
+{
+  if (done)
+    return;
+    
+  double[] a = new double[flock.dimension];
+  a[0] = ((double)mouseX / flock.world_width);
+  a[1] = ((double)mouseY / flock.world_height);
+  a[2] = .5;
+  a[3] = .5;
+  a[4] = .5;
+  a[5] = .5;
+  
+  attractorSetup.add(a);
+  fill(255);
+  ellipse(mouseX - 2, mouseY - 2, 4, 4);
+}
+
+void keyReleased()
+{
+  if (key == 'f')
+    flock.first_attractor_strength = 0.00000;
+}
+
+void keyPressed()
+{
+  if (key == 'f')
+    flock.first_attractor_strength = mouseAttraction;
+   
+  if (key == 'd')
+  {
+    flock.attractors = new double[attractorSetup.size()][];
+    
+    for (int i = 0; i < flock.attractors.length; i++)
+    {
+      flock.attractors[i] = attractorSetup.get(i);
+    }
+    done = true;
+    print("done");
+    noCursor();
+  }
+}
+
+void draw() { 
+  if (done)
+  {
+    for (int i = 0; i < 5; i++) flock.iterate(); 
+  }
+}
 
 /*void setup()
 {
