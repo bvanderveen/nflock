@@ -21,17 +21,14 @@ class NFlock
         phase = 0,
         phaseRate = .002,
         visibility = .0005,
-        cohesion = .000007,
-        alignment = .0005,
+        cohesion = .007,
+        alignment = .005,
         separation = 0.001,
-        per_bird_separation = .003,
-        drive = .003,
-        current_drive = 0;
-        first_attractor_strength = .00000,
-        first_attractor_strength_pressed = .004,
-        attractor_strength = .001,
-        momentum = .002,
-        randomness = .000,
+        drive = .002,
+        current_drive = 0,
+        attractor_strength = .0005,
+        momentum = .0001,
+        randomness = .005,
         stall = 1;
 
     public double[][] attractors;
@@ -135,11 +132,12 @@ class NFlock
         components[2] = scale(separation, normalize(separation_vector));
         components[3] = scale(momentum, normalize(bird.v));
         components[4] = scale(randomness, random(random_min, random_max));
-        components[5] = scale(drive, normalize(difference(driver, bird.p)));
+        components[5] = scale(current_drive, normalize(difference(driver, bird.p)));
         double as = attractor_strength / attractors.length;
         for (int i = 0; i < attractors.length; i++)
         {
-          components[i + 6] = scale(as, normalize(difference(attractors[i], bird.p)));
+          if (distance_squared(bird.p, attractors[i]) > visibility) components[i + 6] = new double[dimension];
+          components[i + 6] = scale(attractor_strength, normalize(difference(attractors[i], bird.p)));
         }
         
         bird.v = sum(components);
@@ -267,13 +265,13 @@ void mousePressed()
 void keyReleased()
 {
   if (key == 'f')
-    flock.first_attractor_strength = .00000000000001;
+    flock.current_drive = .00000000000001;
 }
 
 void keyPressed()
 {
   if (key == 'f')
-    flock.first_attractor_strength = flock.first_attractor_strength_pressed;
+    flock.current_drive = flock.drive;
    
   if (key == 'd')
   {
