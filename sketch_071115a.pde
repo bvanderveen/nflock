@@ -20,15 +20,18 @@ class NFlock
     double
         phase = 0,
         phaseRate = .002,
-        visibility = .05,
-        cohesion = .007,
-        alignment = .005,
-        separation = .001,
+        visibility = .0005,
+        cohesion = .000007,
+        alignment = .0005,
+        separation = 0.001,
         per_bird_separation = .003,
-        first_attractor_strength = .00003,
-        attractor_strength = .00001,
+        drive = .003,
+        current_drive = 0;
+        first_attractor_strength = .00000,
+        first_attractor_strength_pressed = .004,
+        attractor_strength = .001,
         momentum = .002,
-        randomness = .001,
+        randomness = .000,
         stall = 1;
 
     public double[][] attractors;
@@ -115,25 +118,28 @@ class NFlock
                 separation_vector[j] += bird.p[j] - birds[i].p[j];
         }
         
-        attractors[0][0] = (double)mouseX / (double)world_width;
-        attractors[0][1] = (double)mouseY / (double)world_height;
-        //attractor[2] = ((double)(mouseX + mouseY) / (world_width + world_height));
-        attractors[0][2] = .5;
-        attractors[0][3] = .5 * Math.sin(phase * phase) + .5;
-        attractors[0][4] = .5 * Math.sin(phase * phase * .8 + 1) + .5;
-        attractors[0][5] = .5 * Math.sin(phase + 2) + .5;
+        double[] driver = new double[dimension];
         
-        double[][] components = new double[5 + attractors.length][];
+        driver[0] = (double)mouseX / (double)world_width;
+        driver[1] = (double)mouseY / (double)world_height;
+        //attractor[2] = ((double)(mouseX + mouseY) / (world_width + world_height));
+        driver[2] = .5;
+        driver[3] = .5 * Math.sin(phase) + .5;
+        driver[4] = .5 * Math.sin(phase * phase * .8 + 1) + .5;
+        driver[5] = .5 * Math.sin(phase + 2) + .5;
+        
+        double[][] components = new double[6 + attractors.length][];
         
         components[0] = scale(cohesion, normalize(difference(cohesion_point, bird.p)));
         components[1] = scale(alignment, normalize(alignment_vector));
         components[2] = scale(separation, normalize(separation_vector));
         components[3] = scale(momentum, normalize(bird.v));
         components[4] = scale(randomness, random(random_min, random_max));
-        
+        components[5] = scale(drive, normalize(difference(driver, bird.p)));
+        double as = attractor_strength / attractors.length;
         for (int i = 0; i < attractors.length; i++)
         {
-          components[i + 5] = scale(i == 0 ? first_attractor_strength : attractor_strength, normalize(difference(attractors[i], bird.p)));
+          components[i + 6] = scale(as, normalize(difference(attractors[i], bird.p)));
         }
         
         bird.v = sum(components);
@@ -144,29 +150,6 @@ class NFlock
         bird.p0 = bird.p;      
         bird.p = sum(new double[][] { bird.p, bird.v });
        
-        /*
-        tline(
-          (int)bird.p0[0],
-          (int)bird.p0[1],
-          (int)bird.p[0],
-          (int)bird.p[1],
-          (int)bird.p[3],
-          (int)bird.p[4],
-          (int)bird.p[5],
-          (float)(bird.p[2] / world_depth) * .1);
-        */
-        /*
-        color c = color((int)bird.p[3],
-          (int)bird.p[4],
-          (int)bird.p[5],
-          (float)(bird.p[2] / world_depth) * 255);
-        stroke(c);
-        line(
-          (int)bird.p0[0] + (bird.p0[0] < bird.p[0] ? 1 : -1),
-          (int)bird.p0[1] + (bird.p0[1] < bird.p[1] ? 1 : -1),
-          (int)bird.p[0],
-          (int)bird.p[1]);
-          */
         color c = color((int)bird.p[3] * 255,
           (int)(bird.p[4] * 255),
           (int)(bird.p[5] * 255),
@@ -253,8 +236,6 @@ class NFlock
 
 NFlock flock;
 FullScreen fs;
-double mouseAttraction = .0004;
-
 ArrayList<double[]> attractorSetup;
 boolean done;
 
@@ -286,13 +267,13 @@ void mousePressed()
 void keyReleased()
 {
   if (key == 'f')
-    flock.first_attractor_strength = 0.00000;
+    flock.first_attractor_strength = .00000000000001;
 }
 
 void keyPressed()
 {
   if (key == 'f')
-    flock.first_attractor_strength = mouseAttraction;
+    flock.first_attractor_strength = flock.first_attractor_strength_pressed;
    
   if (key == 'd')
   {
